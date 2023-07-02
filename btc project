@@ -1,0 +1,105 @@
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+from prophet import Prophet
+from prophet.plot import add_changepoints_to_plot
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+import seaborn as sns
+
+BTC = pd.read_csv('kaggle datasets download -d sudalairajkumar/cryptocurrency-historical-prices-coingecko')
+BTC.head(2)
+BTC.shape
+BTC.tail(2)
+BTC.info()
+BTC.isnull().sum()
+BTC['date']= pd.to_datetime(BTC['date'])
+
+
+BTC.shape
+
+BTC.rename(columns = {'date':'ds', 'price':'y'}, inplace = True)
+BTC.head(2)
+from statsmodels.tsa.stattools import adfuller
+
+btc_price_vol = BTC[['y', 'total_volume']]
+btc_price_vol.head()
+result = adfuller(btc_price_vol.y.values, autolag='AIC')
+
+print(f'ADF Statistic: {result[0]}')
+
+print(f'p-value: {result[1]}')
+
+for key, value in result[4].items():
+    print('Critial Values:')
+    print(f'   {key}, {value}')
+model = Prophet(interval_width=0.8)
+# business forecast tasks training
+model.fit(BTC)
+future = model.make_future_dataframe(periods=2, freq='M')
+forecast = model.predict(future)
+fig1 = model.plot(forecast)
+fig2 = model.plot_components(forecast)
+BTC['cap'] = 80000
+# confidence interval of 50%
+model_logistic = Prophet(growth='logistic', interval_width=0.5)
+# fitting the model
+model_logistic.fit(BTC)
+# forecasting for future
+future = model_logistic.make_future_dataframe(periods=2, freq='M')
+# carrying capacity
+future['cap'] = 15000
+# predictions 
+forecast_logistic = model_logistic.predict(future)
+fig1 = model.plot(forecast_logistic)
+fig2 = model.plot_components(forecast_logistic)
+split_date = '2022-10-24'
+train_df = BTC.loc[BTC['ds'] <= split_date].copy()
+test_df = BTC.loc[BTC['ds'] > split_date].copy()
+train_df.head(2)
+print(train_df.shape)
+print(test_df.shape)
+model = Prophet()
+model.fit(train_df)
+data_test_fcst = model.predict(df=test_df.reset_index())
+f, ax = plt.subplots(1)
+f.set_figheight(5)
+f.set_figwidth(15)
+fig = model.plot(data_test_fcst, ax=ax)
+fig = model.plot_components(data_test_fcst)
+test_df.head(2)
+f, ax = plt.subplots(1)
+f.set_figheight(5)
+f.set_figwidth(15)
+
+ax.scatter(test_df.ds, test_df['y'], color='r')
+
+fig = model.plot(data_test_fcst, ax=ax)
+data_test_fcst.head()
+import datetime as dt
+
+f, ax = plt.subplots(1)
+f.set_figheight(5)
+f.set_figwidth(15)
+
+ax.scatter(test_df.ds, test_df['y'], color='r')
+
+fig = model.plot(data_test_fcst, ax=ax)
+
+# create datetime objects from string representations of dates
+lower = dt.datetime(2022, 12, 23)
+upper = dt.datetime(2022, 12, 31)
+
+ax.set_xbound(lower=lower, upper=upper)
+# ax.set_xbound(lower='2022-23-12', upper='2022-31-12')
+
+# set x-axis bounds
+# ax.set_xlim(lower, upper)
+
+
+# ax.set_ylim(0, 10000)
+plot = plt.suptitle('Dec-2023 Forecast vs Actuals')
+mean_absolute_error(y_true=test_df['y'],
+                   y_pred=data_test_fcst['yhat'])
